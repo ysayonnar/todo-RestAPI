@@ -1,0 +1,10 @@
+env: 'local'
+http_server:
+  address: 'localhost:8080'
+  timeout: 4s
+  idle_timeout: 60s
+postgres:
+  user: postgres
+  password: root
+  db_name: todo
+  ssl_mode: disable
