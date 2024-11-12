@@ -1,7 +1,6 @@
 package config
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -28,27 +27,24 @@ type Postgres struct {
 	SslMode  string `yaml:"ssl_mode"`
 }
 
-func ParseConfig() *Config {
+func ParseConfig() (*Config, error) {
 	var cfg Config
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		log.Fatal("Error while cwd getting: ", err)
-		return nil
+		return nil, err
 	}
 
 	configPath := filepath.Join(cwd, "./config/config.yaml")
 	yamlConfig, err := os.ReadFile(configPath)
 	if err != nil {
-		log.Fatal("Error while reading file: ", err)
-		return nil
+		return nil, err
 	}
 
 	err = yaml.Unmarshal(yamlConfig, &cfg)
 	if err != nil {
-		log.Fatal("Error while parsing yaml: ")
-		return nil
+		return nil, err
 	}
 
-	return &cfg
+	return &cfg, nil
 }

@@ -6,14 +6,6 @@ import (
 	"todoApi/internal/config"
 )
 
-const (
-	colorReset = "\033[0m"
-	colorDebug = "\033[36m"
-	colorInfo  = "\033[32m"
-	colorWarn  = "\033[33m"
-	colorError = "\033[31m"
-)
-
 func New(cfg *config.Config) *slog.Logger {
 	switch cfg.Env {
 	case "local":
