@@ -2,8 +2,11 @@ package main
 
 import (
 	"log"
+	"log/slog"
+	"net/http"
 	"os"
 	"todoApi/internal/config"
+	"todoApi/internal/http-server/router"
 	"todoApi/internal/logger"
 	"todoApi/internal/storage"
 )
@@ -24,5 +27,19 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("database successfully connected")
-	_ = storage
+
+	r := router.New(storage, log)
+	server := &http.Server{
+		Addr:         cfg.HttpServer.Address,
+		Handler:      r,
+		ReadTimeout:  cfg.HttpServer.Timeout,
+		WriteTimeout: cfg.HttpServer.Timeout,
+		IdleTimeout:  cfg.HttpServer.IdleTimeOut,
+	}
+
+	log.Info("Server listens", slog.String("host", cfg.HttpServer.Address))
+	if err = server.ListenAndServe(); err != nil {
+		log.Error("Error while starting server", logger.Err(err))
+	}
+	log.Error("Server stopped!")
 }
