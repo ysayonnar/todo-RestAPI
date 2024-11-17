@@ -3,9 +3,11 @@ package storage
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/lib/pq"
+	"time"
 	"todoApi/internal/config"
 	"todoApi/internal/storage/queries"
+
+	_ "github.com/lib/pq"
 )
 
 type Storage struct {
@@ -36,4 +38,16 @@ func NewStorageConnection(postgresConfig *config.Postgres) (*Storage, error) {
 	}
 
 	return &Storage{db: db}, nil
+}
+
+func (s *Storage) CreateTask(taskText string, deadline time.Time) (int, error) {
+	const op = "storage.CreateTask"
+
+	var id int
+	query := `INSERT INTO tasks (task, deadline_date) VALUES ($1, $2) RETURNING id;`
+	err := s.db.QueryRow(query, taskText, deadline).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	return id, nil
 }

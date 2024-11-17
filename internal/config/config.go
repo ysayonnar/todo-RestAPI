@@ -35,7 +35,7 @@ func ParseConfig() (*Config, error) {
 		return nil, err
 	}
 
-	configPath := filepath.Join(cwd, "./config/config.yaml")
+	configPath := filepath.Join(cwd, "../config/config.yaml")
 	yamlConfig, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
