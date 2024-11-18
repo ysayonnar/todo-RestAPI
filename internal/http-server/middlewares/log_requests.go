@@ -13,7 +13,7 @@ func LogRequestsInfo(log *slog.Logger) mux.MiddlewareFunc {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			current := time.Now()
 			next.ServeHTTP(w, r)
-			log.Info("request", "method", r.Method, "url", r.URL.String(), "time", time.Since(current).Nanoseconds())
+			log.Info("request", "method", r.Method, "url", r.URL.String(), "time(nanoseconds)", time.Since(current).Microseconds())
 		})
 	}
 }

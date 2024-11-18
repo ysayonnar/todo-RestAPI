@@ -51,3 +51,14 @@ func (s *Storage) CreateTask(taskText string, deadline time.Time) (int, error) {
 	}
 	return id, nil
 }
+
+func (s *Storage) AllTasks() (*sql.Rows, error) {
+	const op = "storage.AllTasks"
+
+	query := `SELECT id, task, is_completed, deadline_date FROM tasks;`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	return rows, nil
+}

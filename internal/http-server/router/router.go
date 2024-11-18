@@ -3,7 +3,7 @@ package router
 import (
 	"log/slog"
 	"todoApi/internal/http-server/handlers"
-	"todoApi/internal/http-server/middlewares"
+	mw "todoApi/internal/http-server/middlewares"
 	"todoApi/internal/storage"
 
 	"github.com/gorilla/mux"
@@ -11,8 +11,9 @@ import (
 
 func New(storage *storage.Storage, log *slog.Logger) *mux.Router {
 	router := mux.NewRouter()
-	router.Use(middlewares.LogRequestsInfo(log))
-	router.Handle("/task/create", handlers.CreateTask(log, storage))
+	router.Use(mw.LogRequestsInfo(log))
+	router.Handle("/task/create", mw.Post(handlers.CreateTask(log, storage)))
+	router.Handle("/task", mw.Get(handlers.GetAllTasks(log, storage)))
 
 	return router
 }

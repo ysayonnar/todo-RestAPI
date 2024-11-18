@@ -9,6 +9,7 @@ import (
 	"time"
 	"todoApi/internal/logger"
 	"todoApi/internal/storage"
+	"todoApi/internal/storage/models"
 )
 
 type TaskCreateRequest struct {
@@ -20,17 +21,16 @@ type TaskCreateResponse struct {
 	Id int `json:"id"`
 }
 
+type TaskAllResponse struct {
+	Tasks []models.Task `json:"tasks"`
+}
+
 func CreateTask(log *slog.Logger, s *storage.Storage) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.CreateTask"
-		log := log.With(
+		log = log.With(
 			slog.String("op", op),
 		)
-
-		if r.Method != "POST" {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -73,6 +73,52 @@ func CreateTask(log *slog.Logger, s *storage.Storage) http.Handler {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("error while parsing json response", logger.Err(err))
+			return
+		}
+		w.Write(jsonResponse)
+	})
+}
+
+func GetAllTasks(log *slog.Logger, s *storage.Storage) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const op = "handlers.GetAllTasks"
+		log = log.With(slog.String("op", op))
+
+		rows, err := s.AllTasks()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("db error", logger.Err(err))
+			return
+		}
+		defer rows.Close()
+
+		var tasks TaskAllResponse
+
+		for rows.Next() {
+			var id int
+			var task string
+			var is_completed bool
+			var deadline_date time.Time
+
+			if err := rows.Scan(&id, &task, &is_completed, &deadline_date); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error("error while scaning rows", logger.Err(err))
+				return
+			}
+
+			item := models.Task{
+				Id:          id,
+				Task:        task,
+				IsCompleted: is_completed,
+				Deadline:    deadline_date,
+			}
+			tasks.Tasks = append(tasks.Tasks, item)
+		}
+
+		jsonResponse, err := json.Marshal(tasks)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("error while parsing jsonResponse", logger.Err(err))
 			return
 		}
 		w.Write(jsonResponse)
