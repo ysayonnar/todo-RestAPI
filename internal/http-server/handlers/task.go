@@ -6,10 +6,13 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 	"todoApi/internal/logger"
 	"todoApi/internal/storage"
 	"todoApi/internal/storage/models"
+
+	"github.com/gorilla/mux"
 )
 
 type TaskCreateRequest struct {
@@ -119,6 +122,65 @@ func GetAllTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("error while parsing jsonResponse", logger.Err(err))
+			return
+		}
+		w.Write(jsonResponse)
+	})
+}
+
+func GetTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const op = "handlers.GetTaskById"
+		log := log.With(slog.String("op", op))
+
+		vars := mux.Vars(r)
+		if _, ok := vars["id"]; !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "invalid id")
+			return
+		}
+
+		taskId, err := strconv.Atoi(vars["id"])
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "invalid id")
+			return
+		}
+		rows, err := s.TaskById(taskId)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("Error while db request", logger.Err(err))
+			return
+		}
+		defer rows.Close()
+
+		var id int
+		var task string
+		var is_completed bool
+		var deadline_date time.Time
+		isExists := rows.Next()
+		if !isExists {
+			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprintf(w, "no task with such id")
+			return
+		}
+		if err := rows.Scan(&id, &task, &is_completed, &deadline_date); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("error while scaning rows", logger.Err(err))
+			return
+		}
+
+		item := models.Task{
+			Id:          id,
+			Task:        task,
+			IsCompleted: is_completed,
+			Deadline:    deadline_date,
+		}
+
+		jsonResponse, err := json.Marshal(item)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("Error while parsing jsonResponse", logger.Err(err))
 			return
 		}
 		w.Write(jsonResponse)

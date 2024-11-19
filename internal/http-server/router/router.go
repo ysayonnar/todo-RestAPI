@@ -14,6 +14,7 @@ func New(storage *storage.Storage, log *slog.Logger) *mux.Router {
 	router.Use(mw.LogRequestsInfo(log))
 	router.Handle("/task/create", mw.Post(handlers.CreateTask(log, storage)))
 	router.Handle("/task", mw.Get(handlers.GetAllTasks(log, storage)))
+	router.Handle("/task/{id}", mw.Get(handlers.GetTaskById(log, storage)))
 
 	return router
 }
