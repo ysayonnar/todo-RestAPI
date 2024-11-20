@@ -52,8 +52,8 @@ func (s *Storage) CreateTask(taskText string, deadline time.Time) (int, error) {
 	return id, nil
 }
 
-func (s *Storage) AllTasks() (*sql.Rows, error) {
-	const op = "storage.AllTasks"
+func (s *Storage) GetAllTasks() (*sql.Rows, error) {
+	const op = "storage.GetAllTasks"
 
 	query := `SELECT id, task, is_completed, deadline_date FROM tasks;`
 	rows, err := s.db.Query(query)
@@ -63,8 +63,8 @@ func (s *Storage) AllTasks() (*sql.Rows, error) {
 	return rows, nil
 }
 
-func (s *Storage) TaskById(id int) (*sql.Rows, error) {
-	const op = "storage.TaskById"
+func (s *Storage) GetTaskById(id int) (*sql.Rows, error) {
+	const op = "storage.GetTaskById"
 
 	query := `SELECT id, task, is_completed, deadline_date FROM tasks WHERE id = $1;`
 	rows, err := s.db.Query(query, id)
@@ -72,4 +72,43 @@ func (s *Storage) TaskById(id int) (*sql.Rows, error) {
 		return nil, fmt.Errorf("op: %s, err: %w", op, err)
 	}
 	return rows, nil
+}
+
+func (s *Storage) DeleteTaskById(id int) error {
+	const op = "storage.DeleteTaskById"
+
+	query := `DELETE FROM tasks WHERE id = $1;`
+
+	rows, err := s.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("op: %s, err: %w", op, err)
+	}
+
+	affected, err := rows.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	if affected < 1 {
+		return fmt.Errorf("op: %s, err: not found", op)
+	}
+	return nil
+}
+
+func (s *Storage) SetTaskCompletedById(id int) error {
+	const op = "storage.SetTaskCompletedById"
+
+	query := `UPDATE tasks SET is_completed = true WHERE id = $1;`
+	rows, err := s.db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("op: %s, err: %w", op, err)
+	}
+
+	affected, err := rows.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	if affected < 1 {
+		return fmt.Errorf("op: %s, err: not found", op)
+	}
+	return nil
 }

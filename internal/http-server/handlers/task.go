@@ -87,7 +87,7 @@ func GetAllTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 		const op = "handlers.GetAllTasks"
 		log = log.With(slog.String("op", op))
 
-		rows, err := s.AllTasks()
+		rows, err := s.GetAllTasks()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("db error", logger.Err(err))
@@ -133,20 +133,20 @@ func GetTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
 		const op = "handlers.GetTaskById"
 		log := log.With(slog.String("op", op))
 
-		vars := mux.Vars(r)
-		if _, ok := vars["id"]; !ok {
+		params := mux.Vars(r)
+		if _, ok := params["id"]; !ok {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "invalid id")
 			return
 		}
 
-		taskId, err := strconv.Atoi(vars["id"])
+		taskId, err := strconv.Atoi(params["id"])
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "invalid id")
 			return
 		}
-		rows, err := s.TaskById(taskId)
+		rows, err := s.GetTaskById(taskId)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("Error while db request", logger.Err(err))
@@ -184,5 +184,63 @@ func GetTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
 			return
 		}
 		w.Write(jsonResponse)
+	})
+}
+
+func DeleteTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const op = "handlers.DeleteTaskById"
+
+		log := log.With(slog.String("op", op))
+		params := mux.Vars(r)
+		if _, ok := params["id"]; !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "invalid id")
+			return
+		}
+
+		taskId, err := strconv.Atoi(params["id"])
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "invalid id")
+			return
+		}
+
+		err = s.DeleteTaskById(taskId)
+		if err != nil {
+			log.Error("error while deleting task", logger.Err(err))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprintf(w, "deleted")
+	})
+}
+
+func SetTaskCompletedById(log *slog.Logger, s *storage.Storage) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const op = "handlers.SetTaskCompletedById"
+
+		log := log.With(slog.String("op", op))
+		params := mux.Vars(r)
+		if _, ok := params["id"]; !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "invalid id")
+			return
+		}
+
+		taskId, err := strconv.Atoi(params["id"])
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "invalid id")
+			return
+		}
+
+		err = s.SetTaskCompletedById(taskId)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			log.Error("error while seting is_completed", logger.Err(err))
+			return
+		}
+		fmt.Fprint(w, "is_completed setted")
 	})
 }
