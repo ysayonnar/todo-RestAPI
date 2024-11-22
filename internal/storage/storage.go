@@ -55,7 +55,7 @@ func (s *Storage) CreateTask(taskText string, deadline time.Time) (int, error) {
 func (s *Storage) GetAllTasks() (*sql.Rows, error) {
 	const op = "storage.GetAllTasks"
 
-	query := `SELECT id, task, is_completed, deadline_date FROM tasks;`
+	query := `SELECT id, task, is_completed, deadline_date FROM tasks ORDER BY deadline_date`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("op: %s, err: %w", op, err)
@@ -111,4 +111,18 @@ func (s *Storage) SetTaskCompletedById(id int) error {
 		return fmt.Errorf("op: %s, err: not found", op)
 	}
 	return nil
+}
+
+func (s *Storage) GetTomorowTasks() (*sql.Rows, error) {
+	const op = "storage.GetTomorowTasks"
+
+	currentDate := time.Now()
+
+	query := `SELECT id, task, is_completed, deadline_date FROM tasks WHERE deadline_date < $1 AND is_completed = false;`
+	rows, err := s.db.Query(query, currentDate)
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+
+	return rows, nil
 }

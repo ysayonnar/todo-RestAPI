@@ -57,8 +57,8 @@ func CreateTask(log *slog.Logger, s *storage.Storage) http.Handler {
 			return
 		}
 
-		//01/02/2006 как я понял это дефолтsный паттерн
-		deadlineTime, err := time.Parse("01/02/2006", request.DeadlineDate)
+		//02/01/2006 как я понял это дефолтsный паттерн
+		deadlineTime, err := time.Parse("02/01/2006", request.DeadlineDate)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "invalid date")
@@ -242,5 +242,50 @@ func SetTaskCompletedById(log *slog.Logger, s *storage.Storage) http.Handler {
 			return
 		}
 		fmt.Fprint(w, "is_completed setted")
+	})
+}
+
+func GetTomorowTasks(log *slog.Logger, s *storage.Storage) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const op = "handlers.GetTomorowTasks"
+
+		log := log.With(slog.String("op", op))
+		rows, err := s.GetTomorowTasks()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("Database error", logger.Err(err))
+			return
+		}
+		defer rows.Close()
+
+		tasks := TaskAllResponse{}
+		for rows.Next() {
+			var id int
+			var task string
+			var is_completed bool
+			var deadline_date time.Time
+
+			if err := rows.Scan(&id, &task, &is_completed, &deadline_date); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error("error while scaning rows", logger.Err(err))
+				return
+			}
+
+			item := models.Task{
+				Id:          id,
+				Task:        task,
+				IsCompleted: is_completed,
+				Deadline:    deadline_date,
+			}
+			tasks.Tasks = append(tasks.Tasks, item)
+		}
+
+		jsonResponse, err := json.Marshal(tasks)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("error while parsing jsonResponse", logger.Err(err))
+			return
+		}
+		w.Write(jsonResponse)
 	})
 }
