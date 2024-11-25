@@ -245,12 +245,12 @@ func SetTaskCompletedById(log *slog.Logger, s *storage.Storage) http.Handler {
 	})
 }
 
-func GetTomorowTasks(log *slog.Logger, s *storage.Storage) http.Handler {
+func GetUncomplitedTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.GetTomorowTasks"
 
 		log := log.With(slog.String("op", op))
-		rows, err := s.GetTomorowTasks()
+		rows, err := s.GetUncomplitedTasks()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("Database error", logger.Err(err))
@@ -287,5 +287,23 @@ func GetTomorowTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 			return
 		}
 		w.Write(jsonResponse)
+	})
+}
+
+func GetTodaysTasks(log *slog.Logger, s *storage.Storage) http.Handler{
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const op = "handlers.GetTodaysTasks"
+		log := log.With(slog.String("op", op))
+
+		rows, err := s.GetTodaysTasks()
+		if err != nil{
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("Error while database request", logger.Err(err))
+			return
+		}
+
+
+		//TODO: отдельную функцию для парсинга sql.rows + использовать ее во всех роутах где она нужна
+
 	})
 }

@@ -11,14 +11,17 @@ import (
 	"todoApi/internal/storage"
 )
 
+
+
 func main() {
 	cfg, err := config.ParseConfig()
 	if err != nil {
 		log.Fatal("Error while parsing config: ", err)
 	}
 	log.Println("Config parsed")
-
+	
 	log := logger.New(cfg)
+	
 	log.Info("logger configured")
 
 	storage, err := storage.NewStorageConnection(&cfg.Postgres)

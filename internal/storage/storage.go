@@ -113,16 +113,26 @@ func (s *Storage) SetTaskCompletedById(id int) error {
 	return nil
 }
 
-func (s *Storage) GetTomorowTasks() (*sql.Rows, error) {
+func (s *Storage) GetUncomplitedTasks() (*sql.Rows, error) {
 	const op = "storage.GetTomorowTasks"
 
-	currentDate := time.Now()
-
 	query := `SELECT id, task, is_completed, deadline_date FROM tasks WHERE deadline_date < $1 AND is_completed = false;`
-	rows, err := s.db.Query(query, currentDate)
+	rows, err := s.db.Query(query, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("op: %s, err: %w", op, err)
 	}
 
+	return rows, nil
+}
+
+func(s *Storage) GetTodaysTasks() (*sql.Rows, error){
+	const op = "storage.GetTodaysTasks"
+
+	query := `SELECT id, task, is_complited, deadline_date FROM tasks WHERE deadline_date = $1 AND is_complited = false;`
+
+	rows,err := s.db.Query(query, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
 	return rows, nil
 }
