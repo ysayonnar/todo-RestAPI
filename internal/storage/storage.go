@@ -128,7 +128,7 @@ func (s *Storage) GetUncomplitedTasks() (*sql.Rows, error) {
 func(s *Storage) GetTodaysTasks() (*sql.Rows, error){
 	const op = "storage.GetTodaysTasks"
 
-	query := `SELECT id, task, is_complited, deadline_date FROM tasks WHERE deadline_date = $1 AND is_complited = false;`
+	query := `SELECT id, task, is_completed, deadline_date FROM tasks WHERE deadline_date = $1 AND is_completed = false;`
 
 	rows,err := s.db.Query(query, time.Now())
 	if err != nil {

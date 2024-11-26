@@ -11,6 +11,7 @@ import (
 	"todoApi/internal/logger"
 	"todoApi/internal/storage"
 	"todoApi/internal/storage/models"
+	"todoApi/internal/utils/response"
 
 	"github.com/gorilla/mux"
 )
@@ -96,26 +97,14 @@ func GetAllTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 		defer rows.Close()
 
 		var tasks TaskAllResponse
-
 		for rows.Next() {
-			var id int
-			var task string
-			var is_completed bool
-			var deadline_date time.Time
-
-			if err := rows.Scan(&id, &task, &is_completed, &deadline_date); err != nil {
+			item, err := response.ScanTask(rows)
+			if err != nil{
 				w.WriteHeader(http.StatusInternalServerError)
-				log.Error("error while scaning rows", logger.Err(err))
+				log.Error("Error while scaning rows", logger.Err(err))
 				return
 			}
-
-			item := models.Task{
-				Id:          id,
-				Task:        task,
-				IsCompleted: is_completed,
-				Deadline:    deadline_date,
-			}
-			tasks.Tasks = append(tasks.Tasks, item)
+			tasks.Tasks = append(tasks.Tasks, *item)
 		}
 
 		jsonResponse, err := json.Marshal(tasks)
@@ -154,28 +143,19 @@ func GetTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
 		}
 		defer rows.Close()
 
-		var id int
-		var task string
-		var is_completed bool
-		var deadline_date time.Time
 		isExists := rows.Next()
 		if !isExists {
 			w.WriteHeader(http.StatusNotFound)
 			fmt.Fprintf(w, "no task with such id")
 			return
 		}
-		if err := rows.Scan(&id, &task, &is_completed, &deadline_date); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			log.Error("error while scaning rows", logger.Err(err))
-			return
-		}
 
-		item := models.Task{
-			Id:          id,
-			Task:        task,
-			IsCompleted: is_completed,
-			Deadline:    deadline_date,
-		}
+		item, err := response.ScanTask(rows)
+		if err != nil{
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("Error while scaning rows", logger.Err(err))
+			return
+		} 
 
 		jsonResponse, err := json.Marshal(item)
 		if err != nil {
@@ -227,7 +207,7 @@ func SetTaskCompletedById(log *slog.Logger, s *storage.Storage) http.Handler {
 			fmt.Fprint(w, "invalid id")
 			return
 		}
-
+	
 		taskId, err := strconv.Atoi(params["id"])
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -256,30 +236,20 @@ func GetUncomplitedTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 			log.Error("Database error", logger.Err(err))
 			return
 		}
+
 		defer rows.Close()
 
 		tasks := TaskAllResponse{}
 		for rows.Next() {
-			var id int
-			var task string
-			var is_completed bool
-			var deadline_date time.Time
-
-			if err := rows.Scan(&id, &task, &is_completed, &deadline_date); err != nil {
+			item, err := response.ScanTask(rows)
+			if err != nil{
 				w.WriteHeader(http.StatusInternalServerError)
-				log.Error("error while scaning rows", logger.Err(err))
+				log.Error("Error while parsing sql.rows", logger.Err(err))
 				return
 			}
-
-			item := models.Task{
-				Id:          id,
-				Task:        task,
-				IsCompleted: is_completed,
-				Deadline:    deadline_date,
-			}
-			tasks.Tasks = append(tasks.Tasks, item)
+			tasks.Tasks = append(tasks.Tasks, *item)
 		}
-
+		
 		jsonResponse, err := json.Marshal(tasks)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -301,9 +271,24 @@ func GetTodaysTasks(log *slog.Logger, s *storage.Storage) http.Handler{
 			log.Error("Error while database request", logger.Err(err))
 			return
 		}
-
-
-		//TODO: отдельную функцию для парсинга sql.rows + использовать ее во всех роутах где она нужна
-
+		defer rows.Close()
+		
+		tasksResponse := TaskAllResponse{}	
+		for rows.Next(){
+			item, err := response.ScanTask(rows)
+			if err != nil{
+				w.WriteHeader(http.StatusInternalServerError)
+				log.Error("Error while scanning rows", logger.Err(err))
+				return
+			}
+			tasksResponse.Tasks = append(tasksResponse.Tasks, *item)
+		}
+		jsonResponse, err := json.Marshal(tasksResponse)
+		if err != nil{
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("Error while parsing to json", logger.Err(err))
+			return
+		}
+		w.Write(jsonResponse)
 	})
 }
