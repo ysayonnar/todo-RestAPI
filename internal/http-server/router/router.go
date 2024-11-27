@@ -19,7 +19,13 @@ func New(storage *storage.Storage, log *slog.Logger) *mux.Router {
 	router.Handle("/task/set-completed/{id}", mw.Post(handlers.SetTaskCompletedById(log, storage)))
 	router.Handle("/task/not-complited", mw.Get(handlers.GetUncomplitedTasks(log, storage)))
 	router.Handle("/task/today", mw.Get(handlers.GetTodaysTasks(log, storage)))
+
+	router.Handle("/auth/login", mw.Post(handlers.Login(log, storage)))
+	router.Handle("/auth/registration", mw.Post(handlers.Registration(log, storage)))
+	router.Handle("/auth/auth", mw.Get(handlers.Auth(log, storage)))
+
 	//TODO: авторизация
+	//TODO: мидлварина для проверки токена Jwt
 
 	return router
 }

@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -11,15 +10,10 @@ import (
 	"todoApi/internal/logger"
 	"todoApi/internal/storage"
 	"todoApi/internal/storage/models"
-	"todoApi/internal/utils/response"
+	"todoApi/internal/utils"
 
 	"github.com/gorilla/mux"
 )
-
-type TaskCreateRequest struct {
-	Task         string `json:"task"`
-	DeadlineDate string `json:"deadline"`
-}
 
 type TaskCreateResponse struct {
 	Id int `json:"id"`
@@ -36,25 +30,17 @@ func CreateTask(log *slog.Logger, s *storage.Storage) http.Handler {
 			slog.String("op", op),
 		)
 
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
+		request, err := utils.ParseTaskBody(r)
+		if err != nil{
 			w.WriteHeader(http.StatusInternalServerError)
-			log.Error("error while parsing body", logger.Err(err))
-			fmt.Fprint(w, "error!")
-		}
-		defer r.Body.Close()
-
-		var request TaskCreateRequest
-		err = json.Unmarshal(body, &request)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			log.Error("error while parsing json")
-			fmt.Fprint(w, "invalid body")
+			log.Error("Error while parsing body", logger.Err(err))
 			return
 		}
+
 		if len(request.DeadlineDate) == 0 || len(request.Task) == 0 {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "invalid body")
+			fmt.Fprint(w, request)
 			return
 		}
 
@@ -95,10 +81,10 @@ func GetAllTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 			return
 		}
 		defer rows.Close()
-
+		
 		var tasks TaskAllResponse
 		for rows.Next() {
-			item, err := response.ScanTask(rows)
+			item, err := utils.ScanTask(rows)
 			if err != nil{
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error("Error while scaning rows", logger.Err(err))
@@ -150,7 +136,7 @@ func GetTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
 			return
 		}
 
-		item, err := response.ScanTask(rows)
+		item, err := utils.ScanTask(rows)
 		if err != nil{
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("Error while scaning rows", logger.Err(err))
@@ -170,8 +156,9 @@ func GetTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
 func DeleteTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.DeleteTaskById"
-
+		
 		log := log.With(slog.String("op", op))
+		
 		params := mux.Vars(r)
 		if _, ok := params["id"]; !ok {
 			w.WriteHeader(http.StatusBadRequest)
@@ -228,7 +215,7 @@ func SetTaskCompletedById(log *slog.Logger, s *storage.Storage) http.Handler {
 func GetUncomplitedTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.GetTomorowTasks"
-
+		
 		log := log.With(slog.String("op", op))
 		rows, err := s.GetUncomplitedTasks()
 		if err != nil {
@@ -236,12 +223,11 @@ func GetUncomplitedTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 			log.Error("Database error", logger.Err(err))
 			return
 		}
-
 		defer rows.Close()
 
 		tasks := TaskAllResponse{}
 		for rows.Next() {
-			item, err := response.ScanTask(rows)
+			item, err := utils.ScanTask(rows)
 			if err != nil{
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error("Error while parsing sql.rows", logger.Err(err))
@@ -275,7 +261,7 @@ func GetTodaysTasks(log *slog.Logger, s *storage.Storage) http.Handler{
 		
 		tasksResponse := TaskAllResponse{}	
 		for rows.Next(){
-			item, err := response.ScanTask(rows)
+			item, err := utils.ScanTask(rows)
 			if err != nil{
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error("Error while scanning rows", logger.Err(err))
