@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 	"todoApi/internal/config"
+	dberrors "todoApi/internal/storage/dbErrors"
 	"todoApi/internal/storage/queries"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 type Storage struct {
@@ -135,4 +136,23 @@ func(s *Storage) GetTodaysTasks() (*sql.Rows, error){
 		return nil, fmt.Errorf("op: %s, err: %w", op, err)
 	}
 	return rows, nil
+}
+
+// TODO: func (s *Storage) GetAllUsers() error{
+
+// }
+
+func (s *Storage) CreateUser(username string, passwordHash string) (int, error){
+	const op = "storage.CreateUser"
+
+	var id int
+	query := `INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id;`
+	err := s.db.QueryRow(query, username, passwordHash).Scan(&id)
+	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505"{
+			return 0, dberrors.ErrAlreadyExists
+		}
+		return 0, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	return id, nil
 }

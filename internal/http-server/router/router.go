@@ -12,6 +12,7 @@ import (
 func New(storage *storage.Storage, log *slog.Logger) *mux.Router {
 	router := mux.NewRouter()
 	router.Use(mw.LogRequestsInfo(log))
+	
 	router.Handle("/task/create", mw.Post(handlers.CreateTask(log, storage)))
 	router.Handle("/task/all", mw.Get(handlers.GetAllTasks(log, storage)))
 	router.Handle("/task/one/{id}", mw.Get(handlers.GetTaskById(log, storage)))
