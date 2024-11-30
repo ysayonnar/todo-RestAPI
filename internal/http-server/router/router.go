@@ -12,7 +12,7 @@ import (
 func New(storage *storage.Storage, log *slog.Logger) *mux.Router {
 	router := mux.NewRouter()
 	router.Use(mw.LogRequestsInfo(log))
-	
+
 	router.Handle("/task/create", mw.Post(handlers.CreateTask(log, storage)))
 	router.Handle("/task/all", mw.Get(handlers.GetAllTasks(log, storage)))
 	router.Handle("/task/one/{id}", mw.Get(handlers.GetTaskById(log, storage)))
@@ -23,10 +23,8 @@ func New(storage *storage.Storage, log *slog.Logger) *mux.Router {
 
 	router.Handle("/auth/login", mw.Post(handlers.Login(log, storage)))
 	router.Handle("/auth/registration", mw.Post(handlers.Registration(log, storage)))
-	router.Handle("/auth/auth", mw.Get(handlers.Auth(log, storage)))
 
-	//TODO: авторизация
-	//TODO: мидлварина для проверки токена Jwt
+	router.Handle("/user", mw.Get(handlers.GetAllUsers(log, storage)))
 
 	return router
 }

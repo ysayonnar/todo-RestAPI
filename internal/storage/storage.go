@@ -126,30 +126,62 @@ func (s *Storage) GetUncomplitedTasks() (*sql.Rows, error) {
 	return rows, nil
 }
 
-func(s *Storage) GetTodaysTasks() (*sql.Rows, error){
+func (s *Storage) GetTodaysTasks() (*sql.Rows, error) {
 	const op = "storage.GetTodaysTasks"
 
 	query := `SELECT id, task, is_completed, deadline_date FROM tasks WHERE deadline_date = $1 AND is_completed = false;`
 
-	rows,err := s.db.Query(query, time.Now())
+	rows, err := s.db.Query(query, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("op: %s, err: %w", op, err)
 	}
 	return rows, nil
 }
 
-// TODO: func (s *Storage) GetAllUsers() error{
+func (s *Storage) GetAllUsers() (*sql.Rows, error) {
+	const op = "storage.GetAllUsers"
 
-// }
+	query := `SELECT id, username FROM users;`
 
-func (s *Storage) CreateUser(username string, passwordHash string) (int, error){
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, op: %w", op, err)
+	}
+	return rows, nil
+}
+
+func (s *Storage) GetUserByUsername(username string) (*sql.Rows, error) {
+	const op = "storage.GetUserByUsername"
+
+	query := `SELECT id, username, password_hash FROM users WHERE LOWER(username) = LOWER($1);`
+
+	result, err := s.db.Exec(query, username)
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	if affected != 1 {
+		return nil, dberrors.ErrNotFound
+	}
+
+	rows, err := s.db.Query(query, username)
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	return rows, nil
+}
+
+func (s *Storage) CreateUser(username string, passwordHash string) (int, error) {
 	const op = "storage.CreateUser"
 
 	var id int
 	query := `INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id;`
 	err := s.db.QueryRow(query, username, passwordHash).Scan(&id)
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505"{
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
 			return 0, dberrors.ErrAlreadyExists
 		}
 		return 0, fmt.Errorf("op: %s, err: %w", op, err)
