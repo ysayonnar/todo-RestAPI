@@ -174,6 +174,31 @@ func (s *Storage) GetUserByUsername(username string) (*sql.Rows, error) {
 	return rows, nil
 }
 
+func (s *Storage) GetUserById(id int) (*sql.Rows, error) {
+	const op = "storage.GetUserById"
+
+	query := `SELECT id, username FROM users WHERE id = $1;`
+
+	result, err := s.db.Exec(query, id)
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	if affected != 1 {
+		return nil, dberrors.ErrNotFound
+	}
+
+	rows, err := s.db.Query(query, id)
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+
+	return rows, nil
+}
+
 func (s *Storage) CreateUser(username string, passwordHash string) (int, error) {
 	const op = "storage.CreateUser"
 

@@ -25,8 +25,7 @@ func New(storage *storage.Storage, log *slog.Logger) *mux.Router {
 	router.Handle("/auth/registration", mw.Post(handlers.Registration(log, storage)))
 
 	router.Handle("/user", mw.Get(handlers.GetAllUsers(log, storage)))
-
-	router.Handle("/test", mw.AuthGuard(handlers.GetAllUsers(log, storage)))
+	router.Handle("/user/current", mw.AuthGuard(mw.Get(handlers.GetUserById(log, storage))))
 
 	return router
 }
