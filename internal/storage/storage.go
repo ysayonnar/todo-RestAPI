@@ -41,12 +41,12 @@ func NewStorageConnection(postgresConfig *config.Postgres) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
-func (s *Storage) CreateTask(taskText string, deadline time.Time) (int, error) {
+func (s *Storage) CreateTask(taskText string, deadline time.Time, userId int) (int, error) {
 	const op = "storage.CreateTask"
 
 	var id int
-	query := `INSERT INTO tasks (task, deadline_date) VALUES ($1, $2) RETURNING id;`
-	err := s.db.QueryRow(query, taskText, deadline).Scan(&id)
+	query := `INSERT INTO tasks (task, deadline_date, user_id) VALUES ($1, $2, $3) RETURNING id;`
+	err := s.db.QueryRow(query, taskText, deadline, userId).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("op: %s, err: %w", op, err)
 	}
@@ -134,6 +134,26 @@ func (s *Storage) GetTodaysTasks() (*sql.Rows, error) {
 	rows, err := s.db.Query(query, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	return rows, nil
+}
+
+func (s *Storage) GetTasksByUserId(userId int) (*sql.Rows, error) {
+	const op = "storage.GetTasksByUserId"
+
+	query := `SELECT tasks.id, tasks.task, tasks.is_completed, tasks.deadline_date, users.username
+			FROM tasks INNER JOIN users ON users.id = $1;
+		`
+	rows, err := s.db.Query(query, userId)
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	result, err := s.db.Exec(query, userId)
+	if err != nil {
+		return nil, fmt.Errorf("op: %s, err: %w", op, err)
+	}
+	if affected, _ := result.RowsAffected(); affected < 1 {
+		return nil, fmt.Errorf("op: %s, err: %w", op, dberrors.ErrNotFound)
 	}
 	return rows, nil
 }

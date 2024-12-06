@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 	"todoApi/internal/logger"
 	"todoApi/internal/storage"
+	dberrors "todoApi/internal/storage/dbErrors"
 	"todoApi/internal/storage/models"
 	"todoApi/internal/utils"
 
@@ -30,8 +32,16 @@ func CreateTask(log *slog.Logger, s *storage.Storage) http.Handler {
 			slog.String("op", op),
 		)
 
+		stringId := r.Header.Get("user-id")
+		userId, err := strconv.Atoi(stringId)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("Error while parsing id from header to int", logger.Err(err))
+			return
+		}
+
 		request, err := utils.ParseTaskBody(r)
-		if err != nil{
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("Error while parsing body", logger.Err(err))
 			return
@@ -52,14 +62,14 @@ func CreateTask(log *slog.Logger, s *storage.Storage) http.Handler {
 			return
 		}
 
-		id, err := s.CreateTask(request.Task, deadlineTime)
+		createdId, err := s.CreateTask(request.Task, deadlineTime, userId)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("err", logger.Err(err))
 			return
 		}
 
-		jsonResponse, err := json.Marshal(&TaskCreateResponse{Id: id})
+		jsonResponse, err := json.Marshal(&TaskCreateResponse{Id: createdId})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("error while parsing json response", logger.Err(err))
@@ -81,11 +91,11 @@ func GetAllTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 			return
 		}
 		defer rows.Close()
-		
+
 		var tasks TaskAllResponse
 		for rows.Next() {
 			item, err := utils.ScanTask(rows)
-			if err != nil{
+			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error("Error while scaning rows", logger.Err(err))
 				return
@@ -137,11 +147,11 @@ func GetTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
 		}
 
 		item, err := utils.ScanTask(rows)
-		if err != nil{
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("Error while scaning rows", logger.Err(err))
 			return
-		} 
+		}
 
 		jsonResponse, err := json.Marshal(item)
 		if err != nil {
@@ -156,9 +166,9 @@ func GetTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
 func DeleteTaskById(log *slog.Logger, s *storage.Storage) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.DeleteTaskById"
-		
+
 		log := log.With(slog.String("op", op))
-		
+
 		params := mux.Vars(r)
 		if _, ok := params["id"]; !ok {
 			w.WriteHeader(http.StatusBadRequest)
@@ -194,7 +204,7 @@ func SetTaskCompletedById(log *slog.Logger, s *storage.Storage) http.Handler {
 			fmt.Fprint(w, "invalid id")
 			return
 		}
-	
+
 		taskId, err := strconv.Atoi(params["id"])
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -215,8 +225,8 @@ func SetTaskCompletedById(log *slog.Logger, s *storage.Storage) http.Handler {
 func GetUncomplitedTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.GetTomorowTasks"
-		
 		log := log.With(slog.String("op", op))
+
 		rows, err := s.GetUncomplitedTasks()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -228,14 +238,14 @@ func GetUncomplitedTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 		tasks := TaskAllResponse{}
 		for rows.Next() {
 			item, err := utils.ScanTask(rows)
-			if err != nil{
+			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error("Error while parsing sql.rows", logger.Err(err))
 				return
 			}
 			tasks.Tasks = append(tasks.Tasks, *item)
 		}
-		
+
 		jsonResponse, err := json.Marshal(tasks)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -246,23 +256,23 @@ func GetUncomplitedTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 	})
 }
 
-func GetTodaysTasks(log *slog.Logger, s *storage.Storage) http.Handler{
+func GetTodaysTasks(log *slog.Logger, s *storage.Storage) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		const op = "handlers.GetTodaysTasks"
 		log := log.With(slog.String("op", op))
 
 		rows, err := s.GetTodaysTasks()
-		if err != nil{
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("Error while database request", logger.Err(err))
 			return
 		}
 		defer rows.Close()
-		
-		tasksResponse := TaskAllResponse{}	
-		for rows.Next(){
+
+		tasksResponse := TaskAllResponse{}
+		for rows.Next() {
 			item, err := utils.ScanTask(rows)
-			if err != nil{
+			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				log.Error("Error while scanning rows", logger.Err(err))
 				return
@@ -270,11 +280,40 @@ func GetTodaysTasks(log *slog.Logger, s *storage.Storage) http.Handler{
 			tasksResponse.Tasks = append(tasksResponse.Tasks, *item)
 		}
 		jsonResponse, err := json.Marshal(tasksResponse)
-		if err != nil{
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			log.Error("Error while parsing to json", logger.Err(err))
 			return
 		}
 		w.Write(jsonResponse)
+	})
+}
+
+func GetTasksByUserId(log *slog.Logger, s *storage.Storage) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		const op = "handlers.GetTasksByUserId"
+		log := log.With(slog.String("op", op))
+
+		stringId := r.Header.Get("user-id")
+		userId, err := strconv.Atoi(stringId)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("Invalid userId type", logger.Err(err))
+			return
+		}
+
+		rows, err := s.GetTasksByUserId(userId)
+		if err != nil {
+			if errors.Is(err, dberrors.ErrNotFound) {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Error("Error while database request", logger.Err(err))
+			return
+		}
+		_ = rows
+
+		//TODO дописать парсер rows
 	})
 }
